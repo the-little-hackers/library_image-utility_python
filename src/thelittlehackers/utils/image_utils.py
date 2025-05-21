@@ -21,7 +21,91 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+from enum import StrEnum
+from enum import auto
+from typing import NamedTuple
+
 from PIL import Image
+
+
+class ImageCropAlignment(StrEnum):
+    """
+    Alignment strategies to use when cropping an image.
+    """
+    # Center the crop area within the image.
+    CENTER = auto()
+
+    # Align the crop area to the left (horizontal crop) or top (vertical
+    # crop).
+    LEFT_OR_TOP = auto()
+
+    #  Align the crop area to the right (horizontal crop) or bottom
+    #  (vertical crop).
+    RIGHT_OR_BOTTOM = auto()
+
+
+class ImageCropShape(StrEnum):
+    """
+    Shapes of the cropping area.
+    """
+    # Crop the image using a circular shape.
+    CIRCLE = auto()
+
+    # Crop the image using a rectangular shape.
+    RECTANGLE = auto()
+
+
+class ImageFilter(StrEnum):
+    """
+    Resampling filters used when resizing an image.
+    """
+
+    # High-quality downsampling filter.
+    ANTI_ALIAS = auto()
+
+    # Cubic interpolation over a 4x4 pixel area for smoother results.
+    BICUBIC = auto()
+
+    # Linear interpolation over a 2x2 pixel area.
+    BILINEAR = auto()
+
+    # Nearest-neighbor resampling (fastest but lowest quality).
+    NEAREST_NEIGHBOR = auto()
+
+
+class ImageVariant(StrEnum):
+    """
+    Predefined image size variants for various use cases.
+    """
+    # High-resolution version for detailed views.
+    LARGE = auto()
+
+    # Medium-sized version for general-purpose display.
+    MEDIUM = auto()
+
+    # Small version for lightweight display.
+    SMALL = auto()
+
+    # Very small size, typically used for previews or avatars.
+    THUMBNAIL = auto()
+
+
+
+class ImageVariantSize(NamedTuple):
+    """
+    Image variant with a specific width and height.
+    """
+    variant: ImageVariant  # The variant type.
+    width: int  # The target width in pixels.
+    height: int  # The target height in pixels.
+
+
+PIL_FILTER_MAPPING = {
+    ImageFilter.NEAREST_NEIGHBOR: Image.Resampling.NEAREST,
+    ImageFilter.BILINEAR: Image.Resampling.BILINEAR,
+    ImageFilter.BICUBIC: Image.Resampling.BICUBIC,
+    ImageFilter.ANTI_ALIAS: Image.Resampling.LANCZOS,
+}
 
 
 def convert_image_to_rgb_mode(
@@ -57,3 +141,160 @@ def convert_image_to_rgb_mode(
     background_image.paste(image, image.split()[-1])
 
     return background_image
+
+
+def generate_image_resolutions(
+        image,
+        variant_sizes: list[ImageVariantSize],
+        image_filter: ImageFilter = ImageFilter.NEAREST_NEIGHBOR,
+        require_cropping: bool = False,
+        crop_alignment: ImageCropAlignment = ImageCropAlignment.CENTER,
+        match_orientation: bool = False
+):
+    """
+    Generate multiple resolution images of the given image.
+
+
+    :param image: a PIL instance to generate multiple pixel resolutions from.
+
+    :param variant_sizes: a list of tuples  ``(logical_size, width, height)``
+        where:
+
+        * ``logical_size``: string representation of the image size, such
+          as, for instance, "thumbnail", "small", "medium", "large".
+
+        * ``width``: positive integer corresponding to the number of pixel
+          columns of the image.
+
+        * ``height``: positive integer corresponding to the number of
+          pixel rows.
+
+    :param image_filter: indicate the filter to use when resizing the image.
+
+    :param require_cropping: indicate whether to crop each generated images.
+
+    :param crop_alignment: if the image needs to be cropped, select which
+        alignment to use when cropping.
+
+    :param match_orientation: indicate whether the given canvas size
+        should be inverted to match the orientation of the image.
+
+
+    :return: an iterator, known as a generator, that returns a Python
+             Library Image (PIL) instance each the generator is called.
+    """
+    for (logical_size, width, height) in \
+            sorted(variant_sizes, key=lambda pixel_resolution: pixel_resolution[1], reverse=True):
+        yield logical_size, resize_image(
+            image,
+            (width, height),
+            image_filter=image_filter,
+            require_cropping=require_cropping,
+            crop_alignment=crop_alignment,
+            require_match_orientation=match_orientation
+        )
+
+
+def resize_image(
+        image: Image,
+        canvas_size: tuple[int, int],
+        image_filter: ImageFilter = ImageFilter.NEAREST_NEIGHBOR,
+        require_cropping: bool =False,
+        crop_alignment: ImageCropAlignment = ImageCropAlignment.center,
+        crop_shape: ImageCropShape = ImageCropShape.RECTANGLE,
+        require_match_orientation: bool = False
+) -> Image:
+    """
+    Resize and optionally crop a PIL image to fit a specified canvas size.
+
+    This function adjusts the input image to match the desired dimensions
+    while preserving its aspect ratio.  It supports optional cropping and
+    resampling filters for better control over output quality.
+
+
+    :param image: A PIL Image instance to be resized.
+
+    :param canvas_size: The target dimensions as a `(width, height)` tuple.
+
+    :param image_filter: The filter to apply when resizing.  Default to
+        `ImageFilter.NEAREST_NEIGHBOR`.
+
+    :param require_cropping: If `True`, the image will be cropped to
+        fit the canvas.  Default to `False`.
+
+    :param crop_alignment: The alignment strategy to cropping the image.
+        Default to `ImageCropAlignment.CENTER`.
+
+    :param crop_shape: The shape of the crop area. Default to
+        `ImageCropShape.RECTANGLE`.
+
+    :param require_match_orientation: If `True`, adjust the canvas size to
+        match the image's orientation.  Default to` False`.
+
+
+    :return: A new PIL Image instance that has been resized and optionally
+        cropped.
+    """
+    source_width, source_height = image.size
+    source_aspect = source_width / float(source_height)
+
+    canvas_width, canvas_height = canvas_size
+    canvas_aspect = canvas_width / float(canvas_height)
+
+    if require_match_orientation:
+        if (
+            source_aspect > 1.0 > canvas_aspect
+            or source_aspect < 1.0 < canvas_aspect
+        ):
+            canvas_width, canvas_height = canvas_height, canvas_width
+            canvas_aspect = canvas_width / float(canvas_height)
+
+    if require_cropping:
+        if source_aspect > canvas_aspect:
+            destination_width = int(source_height * canvas_aspect)
+
+            match crop_alignment:
+                case ImageCropAlignment.LEFT_OR_TOP:
+                    offset = 0
+                case ImageCropAlignment.RIGHT_OR_BOTTOM:
+                    offset = source_width - destination_width
+                case ImageCropAlignment.CENTER:
+                    offset = (source_width - destination_width) / 2
+
+            box = (offset, 0, offset + destination_width, source_height)
+        else:
+            destination_height = int(source_width / canvas_aspect)
+
+            match crop_alignment:
+                case ImageCropAlignment.LEFT_OR_TOP:
+                    offset = 0
+                case ImageCropAlignment.RIGHT_OR_BOTTOM:
+                    offset = source_height - destination_height
+                case ImageCropAlignment.CENTER:
+                    offset = (source_height - destination_height) / 2
+
+            box = (0, offset, source_width, destination_height + offset)
+
+    else:
+        if canvas_aspect > source_aspect:
+            # The canvas aspect is greater than the image aspect when the canvas's
+            # width is greater than the image's width, in which case we need to
+            # crop the left and right edges of the image.
+            destination_width = int(canvas_aspect * source_height)
+            offset = (source_width - destination_width) / 2
+            box = (offset, 0, source_width - offset, source_height)
+        else:
+            # The image aspect is greater than the canvas aspect when the image's
+            # width is greater than the canvas's width, in which case we need to
+            # crop the top and bottom edges of the image.
+            destination_height = int(source_width / canvas_aspect)
+            offset = (source_height - destination_height) / 2
+            box = (0, offset, source_width, source_height - offset)
+
+    cropped_image = image.crop(box)
+    resized_image = cropped_image.resize(
+        (canvas_width, canvas_height),
+        PIL_FILTER_MAPPING[image_filter]
+    )
+
+    return resized_image
