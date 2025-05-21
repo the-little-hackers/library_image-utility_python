@@ -144,7 +144,7 @@ def convert_image_to_rgb_mode(
     return background_image
 
 
-def generate_image_resolutions(
+def generate_image_variants(
         image,
         variant_sizes: Iterable[ImageVariantSize],
         image_filter: ImageFilter = ImageFilter.NEAREST_NEIGHBOR,
