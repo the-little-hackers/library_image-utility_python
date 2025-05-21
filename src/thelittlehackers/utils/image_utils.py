@@ -61,7 +61,6 @@ class ImageFilter(StrEnum):
     """
     Resampling filters used when resizing an image.
     """
-
     # High-quality downsampling filter.
     ANTI_ALIAS = auto()
 
@@ -147,9 +146,9 @@ def convert_image_to_rgb_mode(
 def generate_image_variants(
         image,
         variant_sizes: Iterable[ImageVariantSize],
+        crop_alignment: ImageCropAlignment = ImageCropAlignment.CENTER,
         image_filter: ImageFilter = ImageFilter.NEAREST_NEIGHBOR,
         require_cropping: bool = False,
-        crop_alignment: ImageCropAlignment = ImageCropAlignment.CENTER,
         require_match_orientation: bool = False
 ) -> Generator[tuple[ImageVariant, Image], None, None]:
     """
@@ -200,10 +199,10 @@ def generate_image_variants(
 def resize_image(
         image: Image,
         canvas_size: tuple[int, int],
-        image_filter: ImageFilter = ImageFilter.NEAREST_NEIGHBOR,
-        require_cropping: bool =False,
         crop_alignment: ImageCropAlignment = ImageCropAlignment.center,
         crop_shape: ImageCropShape = ImageCropShape.RECTANGLE,
+        image_filter: ImageFilter = ImageFilter.NEAREST_NEIGHBOR,
+        require_cropping: bool =False,
         require_match_orientation: bool = False
 ) -> Image:
     """
