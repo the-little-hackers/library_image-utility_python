@@ -23,6 +23,8 @@
 
 from enum import StrEnum
 from enum import auto
+from typing import Generator
+from typing import Iterable
 from typing import NamedTuple
 
 from PIL import Image
@@ -96,8 +98,7 @@ class ImageVariantSize(NamedTuple):
     Image variant with a specific width and height.
     """
     variant: ImageVariant  # The variant type.
-    width: int  # The target width in pixels.
-    height: int  # The target height in pixels.
+    size: tuple[int, int]  # The target width and height in pixels.
 
 
 PIL_FILTER_MAPPING = {
@@ -145,53 +146,54 @@ def convert_image_to_rgb_mode(
 
 def generate_image_resolutions(
         image,
-        variant_sizes: list[ImageVariantSize],
+        variant_sizes: Iterable[ImageVariantSize],
         image_filter: ImageFilter = ImageFilter.NEAREST_NEIGHBOR,
         require_cropping: bool = False,
         crop_alignment: ImageCropAlignment = ImageCropAlignment.CENTER,
-        match_orientation: bool = False
-):
+        require_match_orientation: bool = False
+) -> Generator[tuple[ImageVariant, Image], None, None]:
     """
-    Generate multiple resolution images of the given image.
+    Generate multiple resized versions of an image based on a list of
+    variant sizes.
+
+    Each generated image is resized according to the dimensions specified
+    in the `variant_sizes` list.  Optional cropping and resampling filters
+    can be applied to control the output's appearance and quality.
 
 
-    :param image: a PIL instance to generate multiple pixel resolutions from.
+    :param image: A PIL Image instance to generate resized variants from.
 
-    :param variant_sizes: a list of tuples  ``(logical_size, width, height)``
-        where:
+    :param variant_sizes: A list of image variants, each specifying the
+        target size and associated variant name.
 
-        * ``logical_size``: string representation of the image size, such
-          as, for instance, "thumbnail", "small", "medium", "large".
+    :param image_filter: The resampling filter to use for resizing.
+        Default to `ImageFilter.NEAREST_NEIGHBOR`.
 
-        * ``width``: positive integer corresponding to the number of pixel
-          columns of the image.
+    :param require_cropping: If `True`, each image is cropped to match the
+        aspect ratio of the target size.  Default to `False`.
 
-        * ``height``: positive integer corresponding to the number of
-          pixel rows.
+    :param crop_alignment: Specify how to align the image when cropping.
+        Default to `ImageCropAlignment.CENTER`.
 
-    :param image_filter: indicate the filter to use when resizing the image.
-
-    :param require_cropping: indicate whether to crop each generated images.
-
-    :param crop_alignment: if the image needs to be cropped, select which
-        alignment to use when cropping.
-
-    :param match_orientation: indicate whether the given canvas size
-        should be inverted to match the orientation of the image.
+    :param require_match_orientation: If `True`, adjust the target size to
+        match the orientation (portrait/landscape) of the input image.
+        Default to `False`.
 
 
-    :return: an iterator, known as a generator, that returns a Python
-             Library Image (PIL) instance each the generator is called.
+    :return: A generator that yields pairs of image variant type and the
+        corresponding resized PIL Image instance.
     """
-    for (logical_size, width, height) in \
-            sorted(variant_sizes, key=lambda pixel_resolution: pixel_resolution[1], reverse=True):
-        yield logical_size, resize_image(
-            image,
-            (width, height),
-            image_filter=image_filter,
-            require_cropping=require_cropping,
-            crop_alignment=crop_alignment,
-            require_match_orientation=match_orientation
+    for variant_size in variant_sizes:
+        yield (
+            variant_size.variant,
+            resize_image(
+                image,
+                variant_size.size,
+                image_filter=image_filter,
+                require_cropping=require_cropping,
+                crop_alignment=crop_alignment,
+                require_match_orientation=require_match_orientation
+            )
         )
 
 
