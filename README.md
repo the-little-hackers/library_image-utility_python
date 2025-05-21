@@ -1,2 +1,2 @@
-# library_image-utility_python
-Python utility library for manipulating images
+# The Little Hackers Image Utility Python Library
+Python utility library for manipulating images.
