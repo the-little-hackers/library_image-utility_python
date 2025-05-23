@@ -91,7 +91,6 @@ class ImageVariant(StrEnum):
     THUMBNAIL = auto()
 
 
-
 class ImageVariantSize(NamedTuple):
     """
     Image variant with a specific width and height.
