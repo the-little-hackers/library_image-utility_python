@@ -108,9 +108,9 @@ PIL_FILTER_MAPPING = {
 
 
 def convert_image_to_rgb_mode(
-        image: Image,
-        fill_color: tuple[int, int, int] = (255, 255, 255)
-) -> Image:
+        image: Image.Image,
+        background_color: tuple[int, int, int] = (255, 255, 255)
+) -> Image.Image:
     """
     Convert a PIL Image to RGB mode, filling transparent areas with a
     specified color.
@@ -123,8 +123,8 @@ def convert_image_to_rgb_mode(
 
     :param image: A PIL Image instance to be converted to RGB.
 
-    :param fill_color: RGB color used to replace transparent pixels when
-        removing the alpha channel.  Defaults to white (255, 255, 255).
+    :param background_color: RGB color used to replace transparent pixels
+        when removing the alpha channel.  Defaults to white.
 
 
     :return: A PIL Image instance in RGB mode with no alpha channel.
@@ -136,8 +136,15 @@ def convert_image_to_rgb_mode(
     # undesirable result, because transparent pixels also have some
     # unpredictable colors.  It is much better to fill transparent pixels
     # with a specified color.
-    background_image = Image.new(image.mode[:-1], image.size, fill_color)
-    background_image.paste(image, image.split()[-1])
+    mode_without_alpha = image.mode[:-1]  # Remove the alpha channel letter.
+    background_image = Image.new(mode_without_alpha, image.size, background_color)
+
+    # Pastes the RGB data onto the background, only where alpha is
+    # non-transparent:
+    # - Where mask is opaque, pixels from source_image are pasted.
+    # - Where mask is transparent, background stays.
+    image_alpha_channel = image.split()[-1]
+    background_image.paste(image, image_alpha_channel)
 
     return background_image
 
@@ -149,7 +156,7 @@ def generate_image_variants(
         image_filter: ImageFilter = ImageFilter.NEAREST_NEIGHBOR,
         require_cropping: bool = False,
         require_match_orientation: bool = False
-) -> Generator[tuple[ImageVariant, Image], None, None]:
+) -> Generator[tuple[ImageVariant, Image.Image], None, None]:
     """
     Generate multiple resized versions of an image based on a list of
     variant sizes.
@@ -196,14 +203,14 @@ def generate_image_variants(
 
 
 def resize_image(
-        image: Image,
+        image: Image.Image,
         canvas_size: tuple[int, int],
         crop_alignment: ImageCropAlignment = ImageCropAlignment.center,
         crop_shape: ImageCropShape = ImageCropShape.RECTANGLE,
         image_filter: ImageFilter = ImageFilter.NEAREST_NEIGHBOR,
         require_cropping: bool =False,
         require_match_orientation: bool = False
-) -> Image:
+) -> Image.Image:
     """
     Resize and optionally crop a PIL image to fit a specified canvas size.
 
