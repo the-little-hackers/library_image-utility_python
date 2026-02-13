@@ -40,7 +40,7 @@ repository = "https://github.com/the-little-hackers/library_image-utility_python
 version = "0.0.2"
 
 [tool.poetry.dependencies]
-pillow = "^11.2.1"
+pillow = "^12.1.1"
 python = ">=3.12,<4.0"
 
 [tool.poetry.group.dev.dependencies]
