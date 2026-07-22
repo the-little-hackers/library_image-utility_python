@@ -28,6 +28,7 @@ from typing import Iterable
 from typing import NamedTuple
 
 from PIL import Image
+from loguru import logger
 
 
 class ImageCropAlignment(StrEnum):
